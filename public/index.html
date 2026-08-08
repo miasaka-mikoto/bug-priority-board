@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d10">
+  <title>Bug 优先级看板</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark">B!</span>
+      <span>BUG<span class="muted">//</span>BOARD</span>
+    </a>
+    <div class="system-status"><i></i> 维护通道开放中</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">COMMUNITY MAINTENANCE · 公开维护队列</div>
+      <h1>把最影响体验的<br><em>问题顶上来。</em></h1>
+      <p>留下问题与 QQ 名，或为已有问题署名加权。权重越高，修复优先级越高。</p>
+      <div class="hero-actions">
+        <button class="primary" data-open-submit>＋ 提交新问题</button>
+        <a class="ghost" href="#queue">查看当前队列 ↓</a>
+      </div>
+      <div class="stats">
+        <div><strong id="bugCount">—</strong><span>问题总数</span></div>
+        <div><strong id="supportCount">—</strong><span>累计加权</span></div>
+        <div><strong id="topWeight">—</strong><span>最高权重</span></div>
+      </div>
+    </section>
+
+    <section class="rules" id="rules">
+      <div class="section-label">01 / RULES</div>
+      <div class="rules-content">
+        <h2>先看规则，<br>再留下你的声音。</h2>
+        <ol>
+          <li><b>先搜索，避免重复。</b><span>如果同样的问题已经存在，请直接在问题后面添加自己的 QQ 名。</span></li>
+          <li><b>署名就是权重。</b><span>每个 QQ 名对同一问题只能加权一次；署名越多，排序越靠前。</span></li>
+          <li><b>描述要能复现。</b><span>请写清触发步骤、异常现象，尽量不要只写“有 Bug”。</span></li>
+          <li><b>请勿冒用或刷票。</b><span>恶意内容、重复提交与无关信息会被移除。</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="queue" id="queue">
+      <div class="queue-head">
+        <div>
+          <div class="section-label">02 / LIVE QUEUE</div>
+          <h2>当前问题队列</h2>
+        </div>
+        <div class="queue-tools">
+          <label class="search"><span>⌕</span><input id="searchInput" placeholder="搜索问题或分类"></label>
+          <button class="primary compact" data-open-submit>＋ 新问题</button>
+        </div>
+      </div>
+      <div id="bugList" class="bug-list" aria-live="polite">
+        <div class="loading">正在同步维护队列<span>...</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>BUG//BOARD</span><span>透明排序 · 共同维护</span></footer>
+
+  <dialog id="submitDialog">
+    <form id="submitForm">
+      <button type="button" class="close" data-close aria-label="关闭">×</button>
+      <div class="modal-kicker">NEW ISSUE</div>
+      <h2>提交新问题</h2>
+      <p class="modal-intro">提交前请确认列表里没有相同问题。你的 QQ 名将作为第一票权重。</p>
+      <label>问题标题<input name="title" maxlength="80" required placeholder="一句话说明发生了什么"></label>
+      <label>问题分类
+        <select name="category">
+          <option>核心玩法</option><option>角色系统</option><option>卡牌系统</option><option>地图场景</option><option>界面交互</option><option>性能卡顿</option><option>其他问题</option>
+        </select>
+      </label>
+      <label>现象与复现步骤<textarea name="detail" maxlength="400" required placeholder="例如：进入战斗 → 切换模式 → 自动进入编辑模式，之后无法攻击……"></textarea></label>
+      <label>你的 QQ 名<input name="qqName" maxlength="30" required placeholder="用于署名，请不要填写 QQ 号"></label>
+      <button class="primary submit" type="submit">确认提交 <span>↗</span></button>
+      <div class="form-message" id="submitMessage"></div>
+    </form>
+  </dialog>
+
+  <dialog id="supportDialog" class="support-dialog">
+    <form id="supportForm">
+      <button type="button" class="close" data-close aria-label="关闭">×</button>
+      <div class="modal-kicker">ADD WEIGHT</div>
+      <h2>为问题加权</h2>
+      <p class="modal-intro" id="supportTitle"></p>
+      <input type="hidden" name="bugId">
+      <label>你的 QQ 名<input name="qqName" maxlength="30" required autofocus placeholder="填写 QQ 昵称，不需要 QQ 号"></label>
+      <button class="primary submit" type="submit">署名并 +1 权重 <span>↑</span></button>
+      <div class="form-message" id="supportMessage"></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "bug-priority-board",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A lightweight community bug priority board",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

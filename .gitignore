@@ -1,0 +1,9 @@
+# Runtime data — may contain public-submitted names and issue reports.
+data/*.json
+!data/.gitkeep
+
+# Dependencies and local diagnostics
+node_modules/
+npm-debug.log*
+*.log
+.DS_Store
