@@ -80,19 +80,38 @@ function clean(value, max) {
   return typeof value === 'string' ? value.trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max) : '';
 }
 
+function clientError(message, statusCode = 400) {
+  return Object.assign(new Error(message), { statusCode });
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks = [];
+    let size = 0;
+    let oversized = false;
     req.on('data', chunk => {
-      body += chunk;
-      if (Buffer.byteLength(body) > MAX_BODY) {
-        reject(new Error('请求内容过大'));
-        req.destroy();
+      if (oversized) return;
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        oversized = true;
+        chunks.length = 0;
+        reject(clientError('请求内容过大', 413));
+        return; // Drain the request without retaining it or destroying the response.
       }
+      chunks.push(chunk);
     });
     req.on('end', () => {
-      try { resolve(JSON.parse(body || '{}')); }
-      catch { reject(new Error('请求格式不正确')); }
+      if (oversized) return;
+      try {
+        // Decode once: a UTF-8 character may span two incoming buffers.
+        const value = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+          return reject(clientError('请求正文必须是 JSON 对象'));
+        }
+        resolve(value);
+      } catch {
+        reject(clientError('请求格式不正确'));
+      }
     });
     req.on('error', reject);
   });
@@ -120,8 +139,13 @@ function serveStatic(req, res) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    let url;
+    try {
+      url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    } catch {
+      throw clientError('请求地址不正确');
+    }
     if (req.method === 'GET' && url.pathname === '/api/bugs') {
       const bugs = readBugs().sort((a, b) => b.supporters.length - a.supporters.length || new Date(a.createdAt) - new Date(b.createdAt));
       return json(res, 200, bugs);
@@ -168,8 +192,11 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) return json(res, 404, { error: '接口不存在' });
     serveStatic(req, res);
   } catch (error) {
-    console.error(error);
-    if (!res.headersSent) json(res, 500, { error: error.message || '服务器开小差了，请稍后再试。' });
+    const status = error instanceof URIError ? 400 : (error.statusCode || 500);
+    if (status >= 500) console.error(error);
+    if (!res.headersSent) json(res, status, {
+      error: status >= 500 ? '服务器开小差了，请稍后再试。' : error.message
+    });
   }
 });
 
