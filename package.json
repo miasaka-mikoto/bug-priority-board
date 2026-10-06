@@ -4,7 +4,8 @@
   "private": true,
   "description": "A lightweight community bug priority board",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test --test-reporter=tap tests/server.test.js"
   },
   "engines": {
     "node": ">=18"
