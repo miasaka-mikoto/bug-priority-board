@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT) || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || '127.0.0.1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'bugs.json');
@@ -138,6 +138,33 @@ function serveStatic(req, res) {
   });
 }
 
+
+// ---- 轻量限流：防刷票/灌水（内存滑动窗口，无外部依赖） ----
+const WRITE_RATE_LIMITS = [
+  { name: 'create', test: (method, pathname) => method === 'POST' && pathname === '/api/bugs', max: 20, windowMs: 10 * 60 * 1000 },
+  { name: 'support', test: (method, pathname) => method === 'POST' && SUPPORT_PATH_RE.test(pathname), max: 60, windowMs: 10 * 60 * 1000 },
+];
+const SUPPORT_PATH_RE = /^\/api\/bugs\/([a-f0-9-]+)\/support$/i;
+const rateBuckets = new Map(); // key: `${name}:${ip}` -> number[] timestamps
+function isRateLimited(req, pathname) {
+  const rule = WRITE_RATE_LIMITS.find(r => r.test(req.method, pathname));
+  if (!rule) return false;
+  const ip = (req.socket && req.socket.remoteAddress) || 'unknown';
+  const key = `${rule.name}:${ip}`;
+  const now = Date.now();
+  const hits = (rateBuckets.get(key) || []).filter(t => now - t < rule.windowMs);
+  if (hits.length >= rule.max) return true;
+  hits.push(now);
+  rateBuckets.set(key, hits);
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) {
+      const fresh = v.filter(t => now - t < rule.windowMs);
+      if (fresh.length) rateBuckets.set(k, fresh); else rateBuckets.delete(k);
+    }
+  }
+  return false;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     let url;
@@ -149,6 +176,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/bugs') {
       const bugs = readBugs().sort((a, b) => b.supporters.length - a.supporters.length || new Date(a.createdAt) - new Date(b.createdAt));
       return json(res, 200, bugs);
+    }
+
+    if (req.method === 'POST' && (url.pathname === '/api/bugs' || SUPPORT_PATH_RE.test(url.pathname))) {
+      if (isRateLimited(req, url.pathname)) {
+        return json(res, 429, { error: '操作太频繁，请稍后再试。' });
+      }
     }
 
     if (req.method === 'POST' && url.pathname === '/api/bugs') {
@@ -173,7 +206,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, bug);
     }
 
-    const supportMatch = url.pathname.match(/^\/api\/bugs\/([a-f0-9-]+)\/support$/i);
+    const supportMatch = url.pathname.match(SUPPORT_PATH_RE);
     if (req.method === 'POST' && supportMatch) {
       const body = await readBody(req);
       const qqName = clean(body.qqName, 30);
